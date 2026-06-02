@@ -26,23 +26,26 @@ export default function Dashboard() {
   useEffect(() => { fetch(); const i = setInterval(fetch, 5000); return () => clearInterval(i); }, [fetch]);
 
   const cmd = async (t: string) => {
+    setBusyCmd(t);
     try {
-      // 1. Update server status immediately
       await globalThis.fetch('/api/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_id: 'esp32cam-01', is_armed: t === 'arm' ? true : t === 'disarm' ? false : undefined, is_muted: t === 'mute' ? true : t === 'unmute' ? false : undefined }),
       });
-      // 2. Queue command for ESP32
       const r = await (await globalThis.fetch('/api/commands', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: 'esp32cam-01', command_type: t, payload: {} }) })).json();
       setMsg(r.ok ? 'ส่งคำสั่งแล้ว' : r.error);
-      if (r.ok) setStatus((s: any) => s ? { ...s, is_armed: t === 'arm' ? true : t === 'disarm' ? false : s.is_armed, is_muted: t === 'mute' ? true : t === 'unmute' ? false : s.is_muted } : null);
+      if (r.ok) setStatus((s: any) => s ? { ...s, is_armed: t === 'arm' ? true : t === 'disarm' ? false : s.is_armed, is_muted: t === 'mute' ? true : t === 'unmute' ? false : s.is_muted, trigger_distance_cm: t === 'enable_sensor' ? 50 : t === 'disable_sensor' ? 999 : s.trigger_distance_cm } : null);
     } catch (e) { setMsg('error'); }
+    setBusyCmd(null);
   };
 
   const ago = (iso: string | null) => { if (!iso) return null; const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000); if (s < 60) return `${s}วิ`; return `${Math.floor(s / 60)}นาที`; };
 
   const streamUrl = status?.device_ip ? `http://${status.device_ip}:8080` : null;
+
+  const sensorEnabled = (status?.trigger_distance_cm ?? 50) < 999;
+  const sensorLabel = sensorEnabled ? '📡 เปิดเซ็นเซอร์' : '🔕 ปิดเซ็นเซอร์';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -76,10 +79,10 @@ export default function Dashboard() {
 
       {/* Ultrasonic sensor toggle + Snapshot */}
       <div className="mb-4 flex flex-wrap gap-2">
-        <Pill onClick={() => cmd('enable_sensor')} active={false} color="emerald" busy={busyCmd === 'enable_sensor'}>
+        <Pill onClick={() => cmd('enable_sensor')} active={sensorEnabled} color="emerald" busy={busyCmd === 'enable_sensor'}>
           📡 เปิดเซ็นเซอร์
         </Pill>
-        <Pill onClick={() => cmd('disable_sensor')} active={false} color="amber" busy={busyCmd === 'disable_sensor'}>
+        <Pill onClick={() => cmd('disable_sensor')} active={!sensorEnabled} color="amber" busy={busyCmd === 'disable_sensor'}>
           🔕 ปิดเซ็นเซอร์
         </Pill>
         <Pill onClick={() => cmd('capture_snapshot')} active={false} color="zinc" busy={busyCmd === 'capture_snapshot'}>
