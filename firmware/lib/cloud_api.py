@@ -9,6 +9,17 @@ import json
 from lib.logger import info, warn, error
 
 
+def _json_ok(code, body):
+    """ Parse JSON response and check ok field. """
+    if code != 200:
+        return False
+    try:
+        data = json.loads(body)
+        return data.get('ok', False)
+    except:
+        return '"ok":true' in body
+
+
 def _http_post_json(host, path, json_body, headers_extra=None, timeout=15):
     """ HTTPS POST with JSON body. Returns (status_code, body_text). """
     gc.collect()
@@ -70,7 +81,7 @@ def send_heartbeat(base_url, device_id, api_secret):
 
     try:
         code, body = _http_post_json(host, path, payload, headers_extra=headers)
-        ok = code == 200 and '"ok":true' in body
+        ok = _json_ok(code, body)
         if ok:
             info('Heartbeat OK')
         else:
@@ -97,7 +108,7 @@ def post_event(base_url, device_id, api_secret, detected_at, distance_cm, image_
 
     try:
         code, body = _http_post_json(host, path, payload, headers_extra=headers)
-        ok = code == 200 and '"ok":true' in body
+        ok = _json_ok(code, body)
         if ok:
             info('Event posted OK')
         else:

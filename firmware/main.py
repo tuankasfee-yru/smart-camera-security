@@ -111,9 +111,10 @@ try:
                 info('Command received: %s' % cmd_type)
 
                 if cmd_type == 'arm':
+                    tc.set_threshold(50)
                     tc.reset()
                 elif cmd_type == 'disarm':
-                    tc.threshold_cm = 999  # effectively disarm
+                    tc.set_threshold(999)
                 elif cmd_type == 'mute':
                     pass
                 elif cmd_type == 'unmute':

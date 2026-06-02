@@ -22,7 +22,12 @@ def connect(ssid, password, timeout=15, retries=3):
     info('Connecting to: %s' % ssid)
 
     for attempt in range(1, retries + 1):
-        wlan.connect(ssid, password)
+        try:
+            wlan.connect(ssid, password)
+        except Exception as e:
+            warn('Wi-Fi connect error: %s' % e)
+            time.sleep(2)
+            continue
 
         deadline = time.time() + timeout
         while not wlan.isconnected():

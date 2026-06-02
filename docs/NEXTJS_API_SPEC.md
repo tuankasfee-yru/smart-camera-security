@@ -135,6 +135,20 @@ Behavior:
 3. Store command in Supabase.
 4. Respond to Telegram if needed.
 
+### GET `/api/status`
+
+Response now includes: `device_id`, `online`, `last_heartbeat` in addition to original fields.
+
+### POST `/api/heartbeat`
+
+Device sends periodic heartbeat (every 60s).
+
+Request: `{ "device_id": "esp32cam-01" }`
+
+### GET `/api/health`
+
+Public health check. Returns `{ "ok": true, "status": "healthy", "database": "connected", "uptime": <sec> }`
+
 ## Validation Rules
 
 - `device_id` is required.
