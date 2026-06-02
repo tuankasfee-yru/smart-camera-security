@@ -11,12 +11,27 @@ class TriggerController:
         self.threshold_cm = distance_cm
         self.cooldown_ms = cooldown_sec * 1000
         self.last_trigger_ms = 0
+        self.sensor_enabled = True
 
     def set_threshold(self, cm):
         self.threshold_cm = cm
 
     def set_cooldown(self, sec):
         self.cooldown_ms = sec * 1000
+
+    def enable_sensor(self):
+        """ Enable sensor: restore threshold to 50cm, set sensor_enabled. """
+        self.threshold_cm = 50
+        self.sensor_enabled = True
+
+    def disable_sensor(self):
+        """ Disable sensor: set threshold to 999 (effectively off), clear flag. """
+        self.threshold_cm = 999
+        self.sensor_enabled = False
+
+    def set_sensor_enabled(self, enabled):
+        """ Set the sensor_enabled flag directly. """
+        self.sensor_enabled = bool(enabled)
 
     def should_trigger(self, distance_cm):
         """

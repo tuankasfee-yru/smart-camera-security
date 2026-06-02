@@ -14,7 +14,14 @@ function StreamContent() {
     if (!urlParam) {
       fetch('/api/status?device_id=esp32cam-01')
         .then(r => r.json())
-        .then(d => { if (d.ok && d.device_ip) setUrl(`http://${d.device_ip}:8080`); });
+        .then(d => {
+          if (d.ok && d.device_ip && d.online) {
+            setUrl(`http://${d.device_ip}:8080`);
+          } else if (d.ok && d.device_ip) {
+            setUrl(`http://${d.device_ip}:8080`);
+          }
+        })
+        .catch(() => {});
     }
   }, [urlParam]);
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.2 - Firmware Enhancements: Retry, Sensor Toggle, Snapshot, Cloudinary
+
+### Added
+
+- `firmware/lib/camera_manager.py` — `capture_with_retry()`: deinit, wait 500ms, reinit, recapture up to 2 retries
+- `firmware/lib/trigger_controller.py` — `sensor_enabled` flag, `enable_sensor()`, `disable_sensor()`, `set_sensor_enabled()`
+- `firmware/main.py` — `capture_snapshot` command handler: capture immediately, save, Telegram alert, cloud report
+- `firmware/main.py` — sensor loop gated on `tc.sensor_enabled` flag
+- `firmware/lib/cloudinary_upload.py` — `upload_to_cloudinary()`: multipart/form-data POST via socket+SSL
+- `firmware/config.example.py` — `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_UPLOAD_PRESET` variables
+
+### Changed
+
+- `firmware/main.py` — trigger capture uses `capture_with_retry(framesize=5, max_retries=2)`
+- `firmware/main.py` — `arm`/`disarm` commands now also set `sensor_enabled` flag
+- `firmware/main.py` — new `enable_sensor`/`disable_sensor` commands
+- `docs/FIRMWARE_MICROPYTHON_SPEC.md` — updated camera rules, main loop state, command list
+
 ## 0.6.1 - Phase 6: Dashboard MVP
 
 ### Added

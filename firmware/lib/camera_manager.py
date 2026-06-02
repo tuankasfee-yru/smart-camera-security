@@ -4,6 +4,7 @@
 # Power cycle the board if init fails after repeated attempts.
 
 import gc
+import time
 from lib.logger import info, warn, error
 
 # LeMaRiva i2s driver frame sizes:
@@ -82,3 +83,28 @@ def deinit():
             info('Camera deinitialized')
         except Exception as e:
             warn('Deinit warning: %s' % e)
+
+
+def capture_with_retry(framesize=5, max_retries=2):
+    """
+    Capture with automatic retry on failure.
+    When capture returns None: deinit, wait 500ms, reinit, retry.
+    Retries up to max_retries times before giving up.
+    Returns image bytes (bytearray) or None.
+    """
+    for attempt in range(max_retries + 1):
+        buf = capture()
+        if buf is not None:
+            return buf
+
+        if attempt < max_retries:
+            warn('Capture attempt %d of %d failed, retrying...' % (attempt + 1, max_retries + 1))
+            deinit()
+            time.sleep_ms(500)
+            gc.collect()
+            if not init(framesize):
+                error('Camera reinit failed during retry %d' % (attempt + 1))
+                return None
+
+    error('Capture failed after %d attempts' % (max_retries + 1))
+    return None

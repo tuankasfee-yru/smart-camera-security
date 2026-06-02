@@ -3,7 +3,7 @@ import { getAdmin } from "@/lib/supabase";
 import { validateDeviceSecret } from "@/lib/auth";
 import { addCommand, getCommands } from "@/lib/memory-store";
 
-const ALLOWED_COMMANDS = ["arm", "disarm", "mute", "unmute", "delete_latest_file", "cleanup_sd", "capture_snapshot"];
+const ALLOWED_COMMANDS = ["arm", "disarm", "mute", "unmute", "delete_latest_file", "cleanup_sd", "capture_snapshot", "enable_sensor", "disable_sensor"];
 
 export async function GET(request: NextRequest) {
   const supabase = getAdmin();

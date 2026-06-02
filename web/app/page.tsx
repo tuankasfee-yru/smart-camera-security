@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [apiErr, setApiErr] = useState(false);
   const [msg, setMsg] = useState('');
+  const [busyCmd, setBusyCmd] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     try {
@@ -25,11 +26,27 @@ export default function Dashboard() {
   useEffect(() => { fetch(); const i = setInterval(fetch, 5000); return () => clearInterval(i); }, [fetch]);
 
   const cmd = async (t: string) => {
+    setBusyCmd(t);
+    setMsg('');
     try {
       const r = await (await globalThis.fetch('/api/commands', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: 'esp32cam-01', command_type: t, payload: {} }) })).json();
-      setMsg(r.ok ? 'ส่งคำสั่งแล้ว' : r.error);
-      if (r.ok) setStatus((s: any) => s ? { ...s, is_armed: t === 'arm' ? true : t === 'disarm' ? false : s.is_armed, is_muted: t === 'mute' ? true : t === 'unmute' ? false : s.is_muted } : null);
-    } catch { setMsg('error'); }
+      const labels: Record<string, string> = {
+        arm: 'เปิดระบบแล้ว',
+        disarm: 'ปิดระบบแล้ว',
+        mute: 'ปิดเสียงแล้ว',
+        unmute: 'เปิดเสียงแล้ว',
+        enable_sensor: 'เปิดเซ็นเซอร์แล้ว',
+        disable_sensor: 'ปิดเซ็นเซอร์แล้ว',
+        capture_snapshot: 'ส่งคำสั่งถ่ายภาพแล้ว',
+      };
+      setMsg(r.ok ? (labels[t] || 'ส่งคำสั่งแล้ว') : r.error);
+      if (r.ok) setStatus((s: any) => s ? {
+        ...s,
+        is_armed: t === 'arm' ? true : t === 'disarm' ? false : s.is_armed,
+        is_muted: t === 'mute' ? true : t === 'unmute' ? false : s.is_muted,
+      } : null);
+    } catch { setMsg('เกิดข้อผิดพลาด'); }
+    setBusyCmd(null);
   };
 
   const ago = (iso: string | null) => { if (!iso) return null; const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000); if (s < 60) return `${s}วิ`; return `${Math.floor(s / 60)}นาที`; };
@@ -59,14 +76,27 @@ export default function Dashboard() {
         <Card label="ตอบสนอง" value={status?.last_heartbeat ? (ago(status.last_heartbeat) ?? '—') : '—'} />
       </div>
 
-      <div className="mb-8 flex flex-wrap gap-2">
-        <Pill onClick={() => cmd('arm')} active={status?.is_armed} color="emerald">🔓 เปิด</Pill>
-        <Pill onClick={() => cmd('disarm')} active={!status?.is_armed} color="red">🔒 ปิด</Pill>
-        <Pill onClick={() => cmd('mute')} active={status?.is_muted} color="amber">🔇 เสียง</Pill>
-        <Pill onClick={() => cmd('unmute')} active={!status?.is_muted} color="zinc">🔊 เสียง</Pill>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Pill onClick={() => cmd('arm')} active={status?.is_armed} color="emerald" busy={busyCmd === 'arm'}>🔓 เปิด</Pill>
+        <Pill onClick={() => cmd('disarm')} active={!status?.is_armed} color="red" busy={busyCmd === 'disarm'}>🔒 ปิด</Pill>
+        <Pill onClick={() => cmd('mute')} active={status?.is_muted} color="amber" busy={busyCmd === 'mute'}>🔇 เสียง</Pill>
+        <Pill onClick={() => cmd('unmute')} active={!status?.is_muted} color="zinc" busy={busyCmd === 'unmute'}>🔊 เสียง</Pill>
       </div>
 
-      {msg && <p className="-mt-6 mb-8 text-sm text-zinc-500">{msg}</p>}
+      {/* Ultrasonic sensor toggle + Snapshot */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Pill onClick={() => cmd('enable_sensor')} active={false} color="emerald" busy={busyCmd === 'enable_sensor'}>
+          📡 เปิดเซ็นเซอร์
+        </Pill>
+        <Pill onClick={() => cmd('disable_sensor')} active={false} color="amber" busy={busyCmd === 'disable_sensor'}>
+          🔕 ปิดเซ็นเซอร์
+        </Pill>
+        <Pill onClick={() => cmd('capture_snapshot')} active={false} color="zinc" busy={busyCmd === 'capture_snapshot'}>
+          📸 ถ่ายภาพ
+        </Pill>
+      </div>
+
+      {msg && <p className="-mt-2 mb-8 text-sm text-zinc-500">{msg}</p>}
 
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {streamUrl && (
@@ -101,7 +131,16 @@ function Card({ label, value, accent }: { label: string; value: string; accent?:
     </div>
   );
 }
-function Pill({ children, onClick, active, color }: any) {
+
+function Pill({ children, onClick, active, color, busy }: { children: React.ReactNode; onClick: () => void; active?: boolean; color: string; busy?: boolean }) {
   const ac: Record<string, string> = { emerald: 'border-emerald-300 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950', red: 'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950', amber: 'border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950', zinc: 'border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800' };
-  return <button onClick={onClick} className={`rounded-full border px-5 py-2 text-sm font-medium transition-all ${active ? 'ring-2 ring-offset-1' : ''} ${ac[color] || ac.zinc}`}>{children}</button>;
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      className={`rounded-full border px-5 py-2 text-sm font-medium transition-all disabled:opacity-50 ${active ? 'ring-2 ring-offset-1' : ''} ${ac[color] || ac.zinc}`}
+    >
+      {busy ? '⏳' : ''} {children}
+    </button>
+  );
 }

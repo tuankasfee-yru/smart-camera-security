@@ -167,6 +167,78 @@ unmute
 delete_latest_file
 cleanup_sd
 capture_snapshot
+enable_sensor
+disable_sensor
+```
+
+## Gallery API
+
+### GET `/api/gallery`
+
+Returns gallery images merged from Cloudinary references and memory-store events.
+
+Query: `?device_id=esp32cam-01`
+
+Response:
+
+```json
+{
+  "ok": true,
+  "images": [
+    {
+      "id": "uuid",
+      "url": "https://res.cloudinary.com/...",
+      "public_id": "motion_20260512.jpg",
+      "device_id": "esp32cam-01",
+      "detected_at": "2026-05-12T18:30:22+07:00",
+      "distance_cm": 43,
+      "created_at": "2026-05-12T18:30:22+07:00",
+      "source": "cloudinary"
+    }
+  ]
+}
+```
+
+### POST `/api/gallery`
+
+Saves a Cloudinary image reference. Requires `X-Device-Secret`.
+
+Request:
+
+```json
+{
+  "url": "https://res.cloudinary.com/demo/image/upload/v1/test.jpg",
+  "public_id": "test",
+  "device_id": "esp32cam-01",
+  "detected_at": "2026-06-03T10:00:00Z",
+  "distance_cm": 42
+}
+```
+
+Response: `{ "ok": true, "image_id": "uuid" }`
+
+### DELETE `/api/gallery`
+
+Deletes one or more images. Requires `X-Device-Secret`.
+
+Single delete query: `?id=<gallery-id>`
+Bulk delete body: `{ "ids": ["id1", "id2"] }`
+
+Response: `{ "ok": true, "deleted": 2 }`
+
+## Cloudinary Sign API
+
+### GET `/api/cloudinary/sign`
+
+Returns Cloudinary cloud_name for frontend widget initialization. No authentication required.
+
+Response:
+
+```json
+{
+  "ok": true,
+  "cloud_name": "my-cloud"
+}
 ```
 
 ## Vercel Rule

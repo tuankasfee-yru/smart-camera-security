@@ -16,3 +16,7 @@ DEVICE_API_SECRET = 'your-secret'
 # ---------- Telegram Bot ----------
 TELEGRAM_BOT_TOKEN = ''
 TELEGRAM_CHAT_ID = ''
+
+# ---------- Cloudinary Upload ----------
+CLOUDINARY_CLOUD_NAME = ''
+CLOUDINARY_UPLOAD_PRESET = 'smartcam_upload'

@@ -54,3 +54,42 @@ export function completeCommand(id: string): void {
   const c = _commands.find(c => c.id === id);
   if (c) c.status = 'done';
 }
+
+// ── Gallery image store ──────────────────────────────────────
+
+export interface GalleryImage {
+  id: string;
+  url: string;
+  public_id: string;
+  device_id: string;
+  detected_at: string;
+  distance_cm: number | null;
+  created_at: string;
+}
+
+let _gallery: GalleryImage[] = [];
+
+export function getGalleryImages(deviceId?: string): GalleryImage[] {
+  if (deviceId) return _gallery.filter(e => e.device_id === deviceId);
+  return _gallery;
+}
+
+export function addGalleryImage(img: Omit<GalleryImage, 'id' | 'created_at'>): GalleryImage {
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const entry: GalleryImage = { id, ...img, created_at: new Date().toISOString() };
+  _gallery.unshift(entry);
+  return entry;
+}
+
+export function deleteGalleryImage(id: string): boolean {
+  const idx = _gallery.findIndex(e => e.id === id);
+  if (idx === -1) return false;
+  _gallery.splice(idx, 1);
+  return true;
+}
+
+export function deleteGalleryImages(ids: string[]): number {
+  const before = _gallery.length;
+  _gallery = _gallery.filter(e => !ids.includes(e.id));
+  return before - _gallery.length;
+}

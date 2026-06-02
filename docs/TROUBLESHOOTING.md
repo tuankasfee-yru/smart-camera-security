@@ -54,7 +54,30 @@ img = camera.capture()  # returns bytes
 
 Do NOT pass keyword args (`format=`, `fb_location=`) — only 1 positional arg accepted.
 If init fails after repeated attempts, power-cycle the board (unplug USB, wait, replug).
+Capture now auto-retries: on failure, deinit → wait 500ms → reinit → recapture (up to 2 retries). If logs show "Capture failed after 3 attempts", check power supply and camera ribbon.
 Verified working on ESP32-D0WD-V3 (2026-05-12).
+
+---
+
+## Snapshot Command Fails
+
+### Symptoms
+
+- `capture_snapshot` command reports failure
+- Log shows `Snapshot: camera init failed` or `Snapshot: capture failed after retries`
+
+### Likely Causes
+
+- Camera already busy or in bad state
+- Low memory (RAM pressure from Telegram upload + camera)
+- Power brownout during capture
+
+### Fix
+
+- The firmware auto-retries capture up to 2 times before giving up.
+- If persistent, power-cycle the board.
+- Check that Telegram and cloud are reachable (network issues don't block capture, but they do add memory pressure).
+- The snapshot handler deinits camera before and after capture to free RAM for network ops.
 
 ---
 

@@ -36,18 +36,21 @@ If this fails, stop and fix firmware before building other features.
 7. Enter main loop.
 8. If armed, measure distance.
 9. If distance is below threshold:
-   - capture JPEG
+   - capture JPEG (with automatic retry: deinit → wait 500ms → reinit → recapture, up to 2 retries)
    - save JPEG to SD
    - send Telegram alert
    - post event log to cloud
 10. Poll cloud commands periodically.
 11. Execute commands and report result.
+    Supported commands: arm, disarm, enable_sensor, disable_sensor, mute, unmute, capture_snapshot.
+    capture_snapshot: immediately captures, saves, alerts, and reports without waiting for trigger.
 
 ## Suggested Main Loop State
 
 ```python
 is_armed = True
 is_muted = False
+sensor_enabled = True
 trigger_distance_cm = 50
 last_trigger_ms = 0
 trigger_cooldown_ms = 15000
@@ -90,6 +93,7 @@ cleanup_sd_if_needed()
 - Confirm camera capture before integrating Telegram.
 - Avoid high resolution until stable.
 - Release image buffers when possible.
+- On capture failure: deinit, wait 500ms, reinit, retry up to 2 times.
 
 ## Sensor Rules
 
