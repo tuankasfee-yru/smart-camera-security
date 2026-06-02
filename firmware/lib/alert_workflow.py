@@ -32,7 +32,7 @@ def _build_keyboard(device_id, dashboard_url=None):
     return rows
 
 
-def send_detection_text_alert(token, chat_id, device_id, distance_cm, filename=None, dashboard_url=None):
+def send_detection_text_alert(token, chat_id, device_id, distance_cm, filename=None, dashboard_url=None, device_ip=None):
     """
     Send a Telegram text alert with inline buttons.
     Tries Thai message first, then ASCII fallback.
@@ -56,6 +56,10 @@ def send_detection_text_alert(token, chat_id, device_id, distance_cm, filename=N
     if filename:
         file_line = 'File: %s\n' % filename
 
+    ip_line = ''
+    if device_ip:
+        ip_line = 'IP: %s\n' % device_ip
+
     keyboard = _build_keyboard(device_id, dashboard_url)
 
     # --- Attempt 1: Thai message with emoji ---
@@ -63,11 +67,12 @@ def send_detection_text_alert(token, chat_id, device_id, distance_cm, filename=N
         '\xf0\x9f\x9a\xa8 \xe0\xb9\x81\xe0\xb8\x88\xe0\xb9\x89\xe0\xb8\x87\xe0\xb9\x80\xe0\xb8\x95\xe0\xb8\xb7\xe0\xb8\xad\xe0\xb8\x99\n'
         '\n'
         'Device: %s\n'
+        '%s'
         'Time: %s\n'
         'Distance: %.1f cm\n'
         '%s'
         'Status: Armed'
-    ) % (device_id, timestamp, distance_cm, file_line)
+    ) % (device_id, ip_line, timestamp, distance_cm, file_line)
 
     info('Telegram alert (Thai + buttons): %s at %.1f cm' % (device_id, distance_cm))
     r = send_text_message(token, chat_id, msg, keyboard=keyboard)
@@ -83,11 +88,12 @@ def send_detection_text_alert(token, chat_id, device_id, distance_cm, filename=N
     fallback = (
         'ALERT: Object detected\n'
         'Device: %s\n'
+        '%s'
         'Time: %s\n'
         'Distance: %.1f cm\n'
         '%s'
         'Status: Armed'
-    ) % (device_id, timestamp, distance_cm, file_line)
+    ) % (device_id, ip_line, timestamp, distance_cm, file_line)
 
     info('Telegram alert (ASCII + buttons)...')
     r2 = send_text_message(token, chat_id, fallback, keyboard=keyboard)

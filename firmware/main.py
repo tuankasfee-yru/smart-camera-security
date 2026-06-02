@@ -168,7 +168,7 @@ try:
             # 4. Telegram alert
             if use_telegram:
                 from lib.alert_workflow import send_detection_text_alert
-                send_detection_text_alert(token, chat_id, device_id, d, filename=filename)
+                send_detection_text_alert(token, chat_id, device_id, d, filename=filename, device_ip=ip)
 
                 from lib.telegram_client import send_photo_message
                 send_photo_message(token, chat_id, jpeg, caption='%.1f cm | %s' % (d, filename))

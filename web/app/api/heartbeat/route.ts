@@ -12,21 +12,20 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const deviceId = body.device_id || "esp32cam-01";
   const deviceIp = body.device_ip || null;
+  const now = new Date().toISOString();
+
+  // Always update memory store (for extra fields like device_ip)
+  updateHeartbeat(deviceId, deviceIp);
 
   if (supabase) {
     try {
-      const now = new Date().toISOString();
-      await supabase.from("system_config").upsert(
-        { device_id: deviceId, last_heartbeat_at: now, updated_at: now },
-        { onConflict: "device_id" }
-      );
-      return NextResponse.json({ ok: true, server_time: now });
-    } catch (e: any) {
-      return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+      const payload: any = { device_id: deviceId, last_heartbeat_at: now, updated_at: now };
+      if (deviceIp) payload.device_ip = deviceIp;
+      await supabase.from("system_config").upsert(payload, { onConflict: "device_id" });
+    } catch (e) {
+      // Supabase failed, but memory store has it — continue
     }
   }
 
-  // Fallback: in-memory store.
-  updateHeartbeat(deviceId, deviceIp);
-  return NextResponse.json({ ok: true, server_time: new Date().toISOString(), note: "memory-store" });
+  return NextResponse.json({ ok: true, server_time: now, device_ip: deviceIp });
 }
