@@ -16,17 +16,11 @@ from lib.telegram_client import send_photo_message
 def run_detection_alert_cycle(token, chat_id, device_id, distance_cm):
     """
     Run the full detection cycle once.
+    Flow: capture -> save -> deinit camera -> Telegram text+photo -> reinit
 
-    Returns dict:
-        { 'success': bool,
-          'text_sent': bool,
-          'image_captured': bool,
-          'saved_to_sd': bool,
-          'photo_sent': bool,
-          'filename': str,
-          'path': str,
-          'image_size': int,
-          'error': str or None }
+    Returns dict: { 'success', 'text_sent', 'image_captured',
+                    'saved_to_sd', 'photo_sent', 'filename',
+                    'path', 'image_size', 'error' }
     """
 
     result = {
@@ -41,25 +35,65 @@ def run_detection_alert_cycle(token, chat_id, device_id, distance_cm):
         'error': None,
     }
 
-    # ---- 1. Telegram text alert ----
+    from lib.camera_manager import capture as cam_capture
+    from lib.camera_manager import deinit as cam_deinit
+    from lib.camera_manager import init as cam_init
+
+    # ---- 1. Camera capture (camera is init'd by caller) ----
+    info('Capturing...')
+    jpeg = cam_capture()
+    if jpeg is None or len(jpeg) == 0:
+        result['error'] = 'Camera capture failed'
+        return result
+
+    result['image_captured'] = True
+    result['image_size'] = len(jpeg)
+    info('Captured: %d bytes' % len(jpeg))
+
+    # ---- 2. Save to SD ----
+    sd_result = save_motion_image_to_sd(jpeg, distance_cm=distance_cm)
+    result['saved_to_sd'] = sd_result['success']
+    result['filename'] = sd_result['filename']
+    result['path'] = sd_result['path']
+
+    # ---- 3. Deinit camera to free RAM for network ----
+    cam_deinit()
     gc.collect()
-    alert = send_detection_text_alert(token, chat_id, device_id, distance_cm)
+    info('Camera released. Free mem: %d' % gc.mem_free())
+
+    # ---- 4. Telegram text (camera released, more RAM) ----
+    alert = send_detection_text_alert(token, chat_id, device_id, distance_cm, filename=result['filename'])
     result['text_sent'] = alert['success']
     if not alert['success']:
         warn('Telegram text failed: %s' % alert['message'])
     else:
         info('Telegram text: OK')
 
-    # ---- 2. Camera capture ----
-    from lib.camera_manager import capture as cam_capture
-    from lib.camera_manager import deinit as cam_deinit
-    from lib.camera_manager import init as cam_init
+    # ---- 5. Telegram photo ----
+    caption = 'Distance: %.1f cm' % distance_cm
+    if result['filename']:
+        caption += ' | %s' % result['filename']
 
-    info('Capturing...')
-    jpeg = cam_capture()
-    if jpeg is None or len(jpeg) == 0:
-        result['error'] = 'Camera capture failed'
-        return result
+    if result.get('path'):
+        pass  # SD path
+
+    info('Sending photo to Telegram...')
+    photo = send_photo_message(token, chat_id, jpeg, caption=caption)
+    result['photo_sent'] = photo['success']
+    if not photo['success']:
+        warn('Telegram photo failed: %s' % photo['message'])
+    else:
+        info('Telegram photo: OK')
+
+    # ---- 6. Re-init camera for next cycle ----
+    cam_init(framesize=5)
+    gc.collect()
+
+    # Overall success.
+    result['success'] = result['image_captured'] and (
+        result['text_sent'] or result['photo_sent']
+    )
+    return result
 
     result['image_captured'] = True
     result['image_size'] = len(jpeg)

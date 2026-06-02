@@ -2,42 +2,44 @@
 
 ## Current Phase
 
-Phase 4D: Full Pipeline (Telegram + SD) — Code ready.
+Phase 6: Dashboard MVP — DONE. Ready for deploy.
 
-## Verified So Far
+## All Phases Complete
 
-| Component | Status |
+| Phase | Status |
 |---|---|
-| Wi-Fi | PASS |
-| Camera + capture | PASS |
-| HC-SR04 sensor | PASS |
-| Trigger + cooldown | PASS |
-| Flash LED (GPIO4) | PASS |
-| Telegram text | PASS |
-| Telegram photo | READY |
-| MicroSD mount (slot=1 width=1) | PASS |
-| Camera → save to SD | PASS |
-| Trigger → Camera → SD | PASS |
-| Trigger → Telegram → Camera → SD → Telegram photo | READY |
+| 1: Firmware Bring-Up | ✅ |
+| 2: Sensor + Flash + Trigger | ✅ |
+| 3: Telegram Alert | ✅ |
+| 4: SD Card + Full Pipeline | ✅ |
+| 5: Next.js API + Supabase | ✅ |
+| 6: Dashboard MVP | ✅ |
 
-## Active Task: Upload and Run
+## Tests
 
-1. Power-cycle board
-2. Upload via Thonny:
-   - `firmware/lib/full_alert_workflow.py` → `/lib/`
-   - `firmware/lib/telegram_client.py` → `/lib/` (updated with send_photo)
-   - `firmware/test_full_local_alert_sd.py` → `/`
-3. Run: `import test_full_local_alert_sd`
-4. Test:
-   - Object near → Telegram text → capture → SD save → Telegram photo
-   - Check Telegram for both text and photo messages
-   - Check SD for motion_sd_*.jpg files
-   - Cooldown prevents spam
-   - If photo fails, SD image still saved
+```
+✓ lib/auth.test.ts      (4 tests)
+✓ lib/api.test.ts       (7 tests)
+✓ lib/dashboard.test.ts (5 tests)
+16 passed | TypeScript: clean
+```
 
-## Next Phase
+## Dashboard Features
 
-Phase 5: Next.js API + Supabase (web dashboard)
+- System status (armed/disarmed, muted, threshold)
+- Event log table with timestamp, distance, filename
+- Arm / Disarm / Mute / Unmute buttons
+- Manual refresh
+- Loading, empty, and error states
+- Dark mode support
+- Responsive layout
+
+## Active Task: Deploy
+
+1. Set up Supabase project → run `database/migrations/001_initial_schema.sql`
+2. Add `.env.local` in `web/` with real Supabase keys
+3. Deploy to Vercel: `vercel --cwd web`
+4. Update `firmware/lib/cloud_api.py` for ESP32→cloud communication
 
 ## Do Not Work On Yet
 

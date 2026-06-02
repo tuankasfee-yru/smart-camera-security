@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.6.1 - Phase 6: Dashboard MVP
+
+### Added
+
+- `web/app/page.tsx` — full dashboard: system status, event log table, Arm/Disarm/Mute/Unmute buttons, refresh
+- `web/lib/dashboard.test.ts` — 5 dashboard logic tests
+- `web/app/components/` — component directory
+
+### Changed
+
+- `web/lib/supabase.ts` — lazy initialization (builds without env vars)
+- `web/app/api/*` — all routes handle missing Supabase gracefully
+
+### Notes
+
+- Dashboard works without Supabase (shows defaults + empty state)
+- 16 tests passing, TypeScript clean, Next.js build successful
+- Dark mode support, responsive layout
+
+## 0.6.0 - Phase 5: Next.js API + Supabase + Tests
+
+### Added
+
+- `web/` — Next.js App Router project (TypeScript, Tailwind)
+- `web/lib/supabase.ts` — Supabase client (public + admin)
+- `web/lib/auth.ts` — X-Device-Secret header validation
+- `web/app/api/log/route.ts` — POST detection events to Supabase
+- `web/app/api/status/route.ts` — GET/POST system config
+- `web/app/api/commands/route.ts` — GET pending / POST create
+- `web/app/api/commands/result/route.ts` — POST execution results
+- `web/app/api/telegram/callback/route.ts` — Telegram inline button → command
+- `web/lib/auth.test.ts` — 4 tests for device secret validation
+- `web/lib/api.test.ts` — 7 tests for API validation logic
+- `web/.env.example` — environment template
+- `web/.env.test` — test environment variables
+
+### Notes
+
+- All API routes validate X-Device-Secret (returns 401 if missing/wrong)
+- Command types are whitelist-validated
+- Telegram callback parses `device_id:command_type` format
+- 11 tests passing, TypeScript typecheck clean
+- Supabase schema: `system_config`, `event_logs`, `device_commands`, `command_results`
+
+## 0.5.4 - Telegram Text Fix (POST JSON + Fallback)
+
+### Changed
+
+- `firmware/lib/telegram_client.py` — `send_text_message()` now uses POST with JSON body (same reliable pattern as photo)
+- `firmware/lib/alert_workflow.py` — added ASCII fallback: Thai fails → retry with plain English
+- `firmware/test_telegram_text.py` — tests both ASCII and Thai separately
+
+### Notes
+
+- GET with URL-encoded Thai/emoji was failing; POST JSON handles all Unicode natively
+- `_json_escape()` and `_http_post_json()` added for clean JSON POST
+- Fallback ensures alert is always sent even if Thai characters fail
+
 ## 0.5.3 - Phase 4D: Full Pipeline (Telegram Text + Photo + SD)
 
 ### Added

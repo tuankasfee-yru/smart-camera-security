@@ -107,17 +107,8 @@ def test():
                 info('=== DETECTION #%d ===' % capture_count)
                 info('Distance: %.1f cm' % d)
 
-                # 1. Telegram text alert.
+                # 1. Flash + capture + save.
                 name = 'alert_%03d.jpg' % capture_count
-                alert = send_detection_text_alert(
-                    token, chat_id, device, d, filename=name
-                )
-                if alert['success']:
-                    info('Telegram: SENT')
-                else:
-                    warn('Telegram: %s' % alert['message'])
-
-                # 2. Flash + capture + save.
                 info('Capturing with flash...')
                 cap = capture_with_optional_flash(
                     flash_enabled=True,
@@ -128,6 +119,26 @@ def test():
                     info('Saved: %s (%d bytes)' % (name, cap['size']))
                 else:
                     error('Capture failed: %s' % cap['error'])
+
+                # 2. Deinit camera to free RAM for Telegram.
+                cam_deinit()
+                flash_off()
+                gc.collect()
+                info('Camera released. Free mem: %d' % gc.mem_free())
+
+                # 3. Telegram text alert (camera released).
+                alert = send_detection_text_alert(
+                    token, chat_id, device, d, filename=name
+                )
+                if alert['success']:
+                    info('Telegram: SENT')
+                else:
+                    warn('Telegram: %s' % alert['message'])
+
+                # 4. Re-init camera for next cycle.
+                cam_init(framesize=5)
+                init_flash()
+                gc.collect()
 
                 info('Cooldown %ds. Free mem: %d' % (
                     tc.cooldown_ms // 1000, gc.mem_free()))

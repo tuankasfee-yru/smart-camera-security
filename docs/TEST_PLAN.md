@@ -156,6 +156,14 @@ GPIO4 conflict note: remove MicroSD or use 1-bit SD mode.
 | 6 | Cooldown | Prevents Telegram spam | PENDING |
 | 7 | Ctrl+C | Camera released, summary | PENDING |
 
+## Phase 4D Telegram Fix
+
+| # | Test | Expected | Status |
+|---|---|---|---|
+| 1 | `import test_telegram_text` → ASCII | PASS | PENDING |
+| 2 | `import test_telegram_text` → Thai | PASS (POST JSON handles Unicode) | PENDING |
+| 3 | Thai fails | Auto-retry with ASCII fallback | PENDING |
+
 ## Phase 5: API + Dashboard (Future)
 
 | Test | Expected |

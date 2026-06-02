@@ -157,25 +157,22 @@ GPIO4 is shared: built-in flash LED vs SD_MMC_DATA1 (4-bit SD mode).
 - timeout
 - 401 unauthorized
 - no message in chat
-- `urequests not available`
+- ENOMEM (out of memory)
 
 ### Likely Causes
 
-- Wrong bot token
-- Wrong chat ID (must be numeric, not @username)
-- No internet after Wi-Fi connect
-- TLS/SSL not supported by firmware
-- `urequests` module not in firmware build
+- Wrong bot token or chat ID (must be numeric, not @username)
+- GET with long URL-encoded text fails on some firmware (use POST JSON instead)
+- SSL memory pressure after camera init
 
 ### Fix
 
-- Test token separately: `https://api.telegram.org/bot<TOKEN>/getMe`
-- Find chat ID: `https://api.telegram.org/bot<TOKEN>/getUpdates` (send /start to bot first)
-- Use numeric chat ID, not @username
-- Add retry and timeout if supported
-- Send text before photo to isolate issues
-- If photo fails, text + SD save should still work (run `test_full_local_alert_sd`)
-- Check memory: `import gc; print(gc.mem_free())` — photo upload uses extra RAM
+- Test token: `https://api.telegram.org/bot<TOKEN>/getMe`
+- Find chat ID: send /start to bot, then `https://api.telegram.org/bot<TOKEN>/getUpdates`
+- Use `send_text_message()` which now uses POST JSON (reliable Unicode handling)
+- Fallback: Thai fails → ASCII retry automatically
+- Deinit camera before sending Telegram to free RAM
+- See `alert_workflow.py` for fallback logic
 - If `urequests` not found: the firmware build lacks network support
 
 ---

@@ -1,6 +1,9 @@
 # lib/telegram_client.py
 # Telegram Bot API client for MicroPython using raw sockets + SSL.
 # Does NOT require urequests — works with built-in socket/ssl only.
+#
+# send_text_message: POST with JSON body (reliable, handles Unicode)
+# send_photo_message: POST with multipart/form-data body
 
 import socket
 import ssl
@@ -8,29 +11,37 @@ import gc
 from lib.logger import info, warn, error
 
 
-def _encode(text):
-    """ Minimal URL encoding for Telegram text. """
+def _json_escape(text):
+    """ Escape a string for inclusion in a JSON value. """
     result = ''
     for ch in text:
-        if ch == ' ':
-            result += '%20'
+        o = ord(ch)
+        if ch == '"':
+            result += '\\"'
+        elif ch == '\\':
+            result += '\\\\'
         elif ch == '\n':
-            result += '%0A'
-        elif ('A' <= ch <= 'Z') or ('a' <= ch <= 'z') or ('0' <= ch <= '9'):
-            result += ch
-        elif ch in '-_.~':
-            result += ch
+            result += '\\n'
+        elif ch == '\r':
+            result += '\\r'
+        elif ch == '\t':
+            result += '\\t'
+        elif o < 0x20:
+            result += '\\u%04x' % o
         else:
-            result += '%%%02X' % ord(ch)
+            result += ch
     return result
 
 
-def _http_get(host, path, timeout=15):
+def _http_post_json(host, path, json_body, timeout=15):
     """
-    Minimal HTTPS GET request using socket + SSL.
+    HTTPS POST with JSON body.
+    In MicroPython strings are already bytes — write directly.
     Returns (status_code, body_text).
     """
     gc.collect()
+    content_length = len(json_body)
+
     addr = socket.getaddrinfo(host, 443)[0][-1]
     s = socket.socket()
     s.settimeout(timeout)
@@ -39,15 +50,17 @@ def _http_get(host, path, timeout=15):
         s.connect(addr)
         s = ssl.wrap_socket(s)
 
-        request = (
-            'GET %s HTTP/1.1\r\n'
+        header = (
+            'POST %s HTTP/1.1\r\n'
             'Host: %s\r\n'
+            'Content-Type: application/json; charset=utf-8\r\n'
+            'Content-Length: %d\r\n'
             'Connection: close\r\n'
             '\r\n'
-        ) % (path, host)
-        s.write(request.encode())
+        ) % (path, host, content_length)
+        s.write(header.encode())
+        s.write(json_body)   # strings are bytes in MicroPython
 
-        # Read response.
         buf = b''
         while True:
             try:
@@ -58,10 +71,8 @@ def _http_get(host, path, timeout=15):
             except:
                 break
 
-        # Parse.
         text = buf.decode('utf-8', 'ignore')
 
-        # Extract status code.
         status_code = 0
         try:
             status_line = text.split('\r\n')[0]
@@ -69,7 +80,6 @@ def _http_get(host, path, timeout=15):
         except:
             pass
 
-        # Extract JSON body (after \r\n\r\n).
         body = ''
         if '\r\n\r\n' in text:
             body = text.split('\r\n\r\n', 1)[1]
@@ -85,13 +95,14 @@ def _http_get(host, path, timeout=15):
 
 def send_text_message(token, chat_id, text):
     """
-    Send a text message via Telegram Bot API.
-    Returns dict: { 'success': bool, 'status_code': int, 'message': str }
+    Send a text message via Telegram Bot API (POST JSON).
+    Returns dict: { 'success': bool, 'status_code': int, 'message': str, 'response': str }
     """
     result = {
         'success': False,
         'status_code': 0,
         'message': '',
+        'response': '',
     }
 
     if not token or not chat_id:
@@ -99,24 +110,25 @@ def send_text_message(token, chat_id, text):
         return result
 
     host = 'api.telegram.org'
-    path = '/bot%s/sendMessage?chat_id=%s&text=%s' % (token, chat_id, _encode(text))
+    path = '/bot%s/sendMessage' % token
 
-    info('Telegram: sending text...')
+    payload = '{"chat_id":%s,"text":"%s"}' % (chat_id, _json_escape(text))
+
+    info('Telegram: sending text (%d bytes)...' % len(payload))
 
     try:
-        status_code, body = _http_get(host, path)
+        status_code, body = _http_post_json(host, path, payload)
 
         result['status_code'] = status_code
+        result['response'] = body[:200]
 
-        if status_code == 200:
-            # Quick JSON parse — look for "ok":true
-            if '"ok":true' in body or '"ok": true' in body:
-                result['success'] = True
-                result['message'] = 'Sent OK'
-            else:
-                result['message'] = 'Telegram API: %s' % body[:120]
+        if status_code == 200 and ('"ok":true' in body or '"ok": true' in body):
+            result['success'] = True
+            result['message'] = 'Sent OK'
         else:
             result['message'] = 'HTTP %d' % status_code
+            if body:
+                result['message'] += ' %s' % body[:100]
 
     except Exception as e:
         result['message'] = 'Network error: %s' % e
@@ -146,7 +158,6 @@ def send_photo_message(token, chat_id, image_bytes, caption=None):
     host = 'api.telegram.org'
     path = '/bot%s/sendPhoto' % token
 
-    # Build multipart body.
     boundary = '----ESP32CAM'
     eol = '\r\n'
 
@@ -192,7 +203,6 @@ def send_photo_message(token, chat_id, image_bytes, caption=None):
         s.write(header.encode())
         s.write(body)
 
-        # Read response.
         buf = b''
         while True:
             try:
