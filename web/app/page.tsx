@@ -128,7 +128,9 @@ export default function Dashboard() {
         </ul>
       </div>
 
-      <p className="mt-8 text-center text-xs text-zinc-400">ESP32-CAM · MicroPython · Next.js · Supabase</p>
+      <p className="mt-8 text-center text-xs text-zinc-400">
+        <a href="/stream" className="hover:underline">📷 Live Stream</a> · ESP32-CAM · MicroPython · Next.js · Supabase
+      </p>
     </div>
   );
 }
