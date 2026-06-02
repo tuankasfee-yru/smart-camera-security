@@ -29,52 +29,40 @@ if wlan is None:
 
 ip = wlan.ifconfig()[0]
 info('Wi-Fi OK: %s' % ip)
-
-# --- Disconnect Wi-Fi temporarily to reduce power for camera init ---
-wlan.disconnect()
-time.sleep(2)
-info('Wi-Fi paused for camera init...')
-
-# --- SD (skip if failing to save power) ---
-from lib.sd_storage import mount_sd
-sd_ok = False  # skip SD to reduce boot power peak
-
-# --- Camera init (Wi-Fi is off — less power) ---
-from lib.camera_manager import init as cam_init
-from lib.camera_manager import capture as cam_capture
-from lib.camera_manager import deinit as cam_deinit
-from lib.camera_manager import save as cam_save
-
-if not cam_init(framesize=1):
-    error('Camera init failed.')
-    raise SystemExit
-info('Camera: ready')
-
-# --- Reconnect Wi-Fi ---
-wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
-deadline = time.time() + 15
-while not wlan.isconnected():
-    if time.time() > deadline:
-        error('Wi-Fi reconnect failed.')
-        raise SystemExit
-    time.sleep_ms(500)
-ip = wlan.ifconfig()[0]
-info('Wi-Fi reconnected: %s' % ip)
-
-# --- Try SD after camera (optional) ---
-sd_ok = mount_sd()
-if sd_ok:
-    info('SD: mounted')
-else:
-    warn('SD: not available')
+time.sleep(2)  # let Wi-Fi stabilize
 
 # --- Cloud setup ---
 device_id = getattr(config, 'DEVICE_ID', 'esp32cam-01')
 cloud_url = getattr(config, 'CLOUD_BASE_URL', None)
 api_secret = getattr(config, 'DEVICE_API_SECRET', None)
 use_cloud = bool(cloud_url and api_secret)
+
 if use_cloud:
     info('Cloud: %s' % cloud_url)
+else:
+    warn('Cloud not configured. Heartbeat + events disabled.')
+
+# --- SD Card (before camera) ---
+from lib.sd_storage import mount_sd
+sd_ok = mount_sd()
+if sd_ok:
+    info('SD: mounted')
+else:
+    warn('SD: not available — saving to internal flash')
+
+time.sleep(1)  # delay before camera
+
+# --- Camera (use smaller framesize to reduce boot power peak) ---
+from lib.camera_manager import init as cam_init
+from lib.camera_manager import capture as cam_capture
+from lib.camera_manager import deinit as cam_deinit
+from lib.camera_manager import save as cam_save
+
+if not cam_init(framesize=1):  # QQVGA — lower power
+    error('Camera init failed.')
+    raise SystemExit
+info('Camera: ready')
+time.sleep(1)
 
 # --- Flash ---
 from lib.flash_led import init_flash, flash_off
