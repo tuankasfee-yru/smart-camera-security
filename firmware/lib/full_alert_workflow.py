@@ -13,7 +13,7 @@ from lib.telegram_client import send_photo_message
 # Imported inside run_detection_alert_cycle() after SD is ready.
 
 
-def run_detection_alert_cycle(token, chat_id, device_id, distance_cm):
+def run_detection_alert_cycle(token, chat_id, device_id, distance_cm, dashboard_url=None):
     """
     Run the full detection cycle once.
     Flow: capture -> save -> deinit camera -> Telegram text+photo -> reinit

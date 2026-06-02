@@ -33,6 +33,20 @@ def _json_escape(text):
     return result
 
 
+def _json_keyboard(rows):
+    """ Build JSON string for inline_keyboard. """
+    parts = []
+    for row in rows:
+        btns = []
+        for btn in row:
+            bits = []
+            for k, v in btn.items():
+                bits.append('"%s":"%s"' % (k, _json_escape(str(v))))
+            btns.append('{%s}' % ','.join(bits))
+        parts.append('[%s]' % ','.join(btns))
+    return '{"inline_keyboard":[%s]}' % ','.join(parts)
+
+
 def _http_post_json(host, path, json_body, timeout=15):
     """
     HTTPS POST with JSON body.
@@ -93,9 +107,10 @@ def _http_post_json(host, path, json_body, timeout=15):
             pass
 
 
-def send_text_message(token, chat_id, text):
+def send_text_message(token, chat_id, text, keyboard=None):
     """
     Send a text message via Telegram Bot API (POST JSON).
+    Optional keyboard: list of button rows, each row is list of dicts.
     Returns dict: { 'success': bool, 'status_code': int, 'message': str, 'response': str }
     """
     result = {
@@ -112,7 +127,12 @@ def send_text_message(token, chat_id, text):
     host = 'api.telegram.org'
     path = '/bot%s/sendMessage' % token
 
-    payload = '{"chat_id":%s,"text":"%s"}' % (chat_id, _json_escape(text))
+    if keyboard:
+        kb_json = _json_keyboard(keyboard)
+        payload = '{"chat_id":%s,"text":"%s","reply_markup":%s}' % (
+            chat_id, _json_escape(text), kb_json)
+    else:
+        payload = '{"chat_id":%s,"text":"%s"}' % (chat_id, _json_escape(text))
 
     info('Telegram: sending text (%d bytes)...' % len(payload))
 
