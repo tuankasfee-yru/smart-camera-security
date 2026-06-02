@@ -4,6 +4,7 @@ create table if not exists system_config (
   is_armed boolean not null default true,
   is_muted boolean not null default false,
   trigger_distance_cm integer not null default 50,
+  last_heartbeat_at timestamptz,
   updated_at timestamptz not null default now()
 );
 
