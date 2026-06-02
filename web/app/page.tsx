@@ -26,19 +26,19 @@ export default function Dashboard() {
   useEffect(() => { fetch(); const i = setInterval(fetch, 5000); return () => clearInterval(i); }, [fetch]);
 
   const cmd = async (t: string) => {
-    setBusyCmd(t);
-    setMsg('');
     try {
+      // 1. Update server status immediately
+      await globalThis.fetch('/api/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: 'esp32cam-01', is_armed: t === 'arm' ? true : t === 'disarm' ? false : undefined, is_muted: t === 'mute' ? true : t === 'unmute' ? false : undefined }),
+      });
+      // 2. Queue command for ESP32
       const r = await (await globalThis.fetch('/api/commands', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: 'esp32cam-01', command_type: t, payload: {} }) })).json();
-      const labels: Record<string, string> = {
-        arm: 'เปิดระบบแล้ว',
-        disarm: 'ปิดระบบแล้ว',
-        mute: 'ปิดเสียงแล้ว',
-        unmute: 'เปิดเสียงแล้ว',
-        enable_sensor: 'เปิดเซ็นเซอร์แล้ว',
-        disable_sensor: 'ปิดเซ็นเซอร์แล้ว',
-        capture_snapshot: 'ส่งคำสั่งถ่ายภาพแล้ว',
-      };
+      setMsg(r.ok ? 'ส่งคำสั่งแล้ว' : r.error);
+      if (r.ok) setStatus((s: any) => s ? { ...s, is_armed: t === 'arm' ? true : t === 'disarm' ? false : s.is_armed, is_muted: t === 'mute' ? true : t === 'unmute' ? false : s.is_muted } : null);
+    } catch { setMsg('error'); }
+  };
       setMsg(r.ok ? (labels[t] || 'ส่งคำสั่งแล้ว') : r.error);
       if (r.ok) setStatus((s: any) => s ? {
         ...s,
