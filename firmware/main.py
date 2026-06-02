@@ -29,7 +29,12 @@ if wlan is None:
 
 ip = wlan.ifconfig()[0]
 info('Wi-Fi OK: %s' % ip)
-time.sleep(2)  # let Wi-Fi stabilize
+
+# Save IP, then power off Wi-Fi to free resources for camera
+wlan.disconnect()
+wlan.active(False)
+info('Wi-Fi paused for camera init...')
+time.sleep(2)
 
 # --- Cloud setup ---
 device_id = getattr(config, 'DEVICE_ID', 'esp32cam-01')
@@ -50,19 +55,29 @@ if sd_ok:
 else:
     warn('SD: not available — saving to internal flash')
 
-time.sleep(1)  # delay before camera
-
-# --- Camera (use smaller framesize to reduce boot power peak) ---
+# --- Camera ---
 from lib.camera_manager import init as cam_init
-from lib.camera_manager import capture_with_retry as cam_capture_retry
+from lib.camera_manager import capture as cam_capture
 from lib.camera_manager import deinit as cam_deinit
 from lib.camera_manager import save as cam_save
+from lib.camera_manager import capture_with_retry as cam_capture_retry
 
-if not cam_init(framesize=1):  # QQVGA — lower power
+if not cam_init(framesize=1):
     error('Camera init failed.')
     raise SystemExit
 info('Camera: ready')
-time.sleep(1)
+
+# --- Reconnect Wi-Fi ---
+wlan.active(True)
+wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+deadline = time.time() + 20
+while not wlan.isconnected():
+    if time.time() > deadline:
+        error('Wi-Fi reconnect failed.')
+        raise SystemExit
+    time.sleep_ms(500)
+ip = wlan.ifconfig()[0]
+info('Wi-Fi reconnected: %s' % ip)
 
 # --- Flash ---
 from lib.flash_led import init_flash, flash_off
@@ -186,6 +201,8 @@ try:
                                 t = time.localtime()
                                 ts = '%04d-%02d-%02dT%02d:%02d:%02dZ' % (t[0], t[1], t[2], t[3], t[4], t[5])
                                 post_event(cloud_url, device_id, api_secret, ts, 0, snap_filename)
+                                from lib.cloud_api import upload_capture
+                                upload_capture(cloud_url, device_id, api_secret, jpeg, ts, 0, snap_filename)
 
                             snapshot_ok = True
                             snapshot_msg = 'snap %s' % snap_filename
@@ -262,11 +279,17 @@ try:
                 from lib.telegram_client import send_photo_message
                 send_photo_message(token, chat_id, jpeg, caption='%.1f cm | %s' % (d, filename))
 
-            # 5. Cloud event
+            # 5. Cloud event + upload image
             if use_cloud:
                 t = time.localtime()
                 ts = '%04d-%02d-%02dT%02d:%02d:%02dZ' % (t[0], t[1], t[2], t[3], t[4], t[5])
                 post_event(cloud_url, device_id, api_secret, ts, d, filename)
+                from lib.cloud_api import upload_capture
+                up = upload_capture(cloud_url, device_id, api_secret, jpeg, ts, d, filename)
+                if up['success']:
+                    info('Image uploaded: %s' % up.get('id', ''))
+                else:
+                    warn('Image upload failed')
 
             # 6. Re-init camera
             cam_init(framesize=5)

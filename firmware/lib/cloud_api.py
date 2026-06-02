@@ -199,3 +199,74 @@ def report_command_result(base_url, device_id, api_secret, command_id, success, 
     except Exception as e:
         warn('Report result error: %s' % e)
         return False
+
+
+def upload_capture(base_url, device_id, api_secret, image_bytes, detected_at, distance_cm, filename):
+    """
+    Upload JPEG capture to cloud /api/captures.
+    Uses raw socket POST with multipart.
+    Returns dict with { 'success': bool, 'id': str, 'url': str }
+    """
+    import time as _time
+    host, port, use_ssl = _parse_url(base_url)
+    path = '/api/captures'
+    gc.collect()
+
+    boundary = '----ESP32UPLOAD'
+    eol = '\r\n'
+    body = b''
+    body += ('--%s' % boundary + eol).encode()
+    body += ('Content-Disposition: form-data; name="image"; filename="%s"' % filename + eol).encode()
+    body += ('Content-Type: image/jpeg' + eol + eol).encode()
+    body += image_bytes
+    body += (eol).encode()
+    body += ('--%s--' % boundary + eol).encode()
+
+    content_length = len(body)
+
+    addr = socket.getaddrinfo(host, port)[0][-1]
+    s = socket.socket()
+    s.settimeout(30)
+
+    try:
+        s.connect(addr)
+        if use_ssl:
+            s = ssl.wrap_socket(s)
+
+        hdr = (
+            'POST %s HTTP/1.1\r\n'
+            'Host: %s\r\n'
+            'X-Device-Secret: %s\r\n'
+            'X-Device-Id: %s\r\n'
+            'X-Detected-At: %s\r\n'
+            'X-Distance-Cm: %.1f\r\n'
+            'X-Filename: %s\r\n'
+            'Content-Type: multipart/form-data; boundary=%s\r\n'
+            'Content-Length: %d\r\n'
+            'Connection: close\r\n'
+            '\r\n'
+        ) % (path, host, api_secret, device_id, detected_at, distance_cm, filename, boundary, content_length)
+        s.write(hdr.encode())
+        s.write(body)
+
+        buf = b''
+        while True:
+            try:
+                chunk = s.read(512)
+                if not chunk: break
+                buf += chunk
+            except: break
+
+        text = buf.decode('utf-8', 'ignore')
+        body_text = text.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in text else '{}'
+        try:
+            data = json.loads(body_text)
+            return {'success': data.get('ok', False), 'id': data.get('id', ''), 'url': '/api/captures/view/'}
+        except:
+            return {'success': '"ok":true' in text, 'id': '', 'url': ''}
+    except Exception as e:
+        warn('Upload error: %s' % e)
+        return {'success': False, 'id': '', 'url': ''}
+    finally:
+        try: s.close()
+        except: pass
