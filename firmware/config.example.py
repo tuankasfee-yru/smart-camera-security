@@ -7,4 +7,12 @@ WIFI_SSID = 'YOUR_SSID'
 WIFI_PASSWORD = 'YOUR_PASSWORD'
 
 # ---------- Device ----------
+DEVICE_ID = 'esp32cam-01'
 
+# ---------- Cloud API ----------
+CLOUD_BASE_URL = 'https://your-app.vercel.app'
+DEVICE_API_SECRET = 'your-secret'
+
+# ---------- Telegram Bot ----------
+TELEGRAM_BOT_TOKEN = ''
+TELEGRAM_CHAT_ID = ''

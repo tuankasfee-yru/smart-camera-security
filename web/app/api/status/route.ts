@@ -4,13 +4,28 @@ import { validateDeviceSecret } from "@/lib/auth";
 
 const DEFAULT_DEVICE = "esp32cam-01";
 
+function isOnline(lastHeartbeat: string | null): boolean {
+  if (!lastHeartbeat) return false;
+  const t = new Date(lastHeartbeat).getTime();
+  const now = Date.now();
+  return (now - t) < 2 * 60 * 1000; // 2 minutes
+}
+
 export async function GET(request: NextRequest) {
   const supabase = getAdmin();
   const { searchParams } = new URL(request.url);
   const deviceId = searchParams.get("device_id") || DEFAULT_DEVICE;
 
   if (!supabase) {
-    return NextResponse.json({ ok: true, is_armed: true, is_muted: false, trigger_distance_cm: 50 });
+    return NextResponse.json({
+      ok: true,
+      device_id: deviceId,
+      is_armed: true,
+      is_muted: false,
+      trigger_distance_cm: 50,
+      online: false,
+      last_heartbeat: null,
+    });
   }
 
   const { data, error } = await supabase
@@ -25,9 +40,12 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    device_id: deviceId,
     is_armed: data?.is_armed ?? true,
     is_muted: data?.is_muted ?? false,
     trigger_distance_cm: data?.trigger_distance_cm ?? 50,
+    online: isOnline(data?.last_heartbeat_at ?? null),
+    last_heartbeat: data?.last_heartbeat_at ?? null,
   });
 }
 
