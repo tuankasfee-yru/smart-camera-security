@@ -51,8 +51,12 @@ export async function POST(request: NextRequest) {
     if (body.trigger_distance_cm !== undefined) updates.trigger_distance_cm = body.trigger_distance_cm;
 
     if (supabase) {
-      const { data, error } = await supabase.from("system_config").upsert(updates).select().single();
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      const { data, error } = await supabase.from("system_config").upsert(updates, { onConflict: 'device_id' }).select().single();
+      if (error) {
+        // Fallback to memory store on Supabase error
+        updateConfig(deviceId, { is_armed: updates.is_armed, is_muted: updates.is_muted });
+        return NextResponse.json({ ok: true, config: getDevice(deviceId), note: 'fallback' });
+      }
       updateConfig(deviceId, { is_armed: updates.is_armed, is_muted: updates.is_muted });
       return NextResponse.json({ ok: true, config: data });
     }
