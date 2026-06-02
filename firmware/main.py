@@ -279,17 +279,35 @@ try:
                 from lib.telegram_client import send_photo_message
                 send_photo_message(token, chat_id, jpeg, caption='%.1f cm | %s' % (d, filename))
 
-            # 5. Cloud event + upload image
+            # 5. Cloud event + Cloudinary upload
             if use_cloud:
                 t = time.localtime()
                 ts = '%04d-%02d-%02dT%02d:%02d:%02dZ' % (t[0], t[1], t[2], t[3], t[4], t[5])
-                post_event(cloud_url, device_id, api_secret, ts, d, filename)
-                from lib.cloud_api import upload_capture
-                up = upload_capture(cloud_url, device_id, api_secret, jpeg, ts, d, filename)
-                if up['success']:
-                    info('Image uploaded: %s' % up.get('id', ''))
+
+                # Upload to Cloudinary first
+                cloud_ok = False
+                cloud_url = ''
+                cloud_name = getattr(config, 'CLOUDINARY_CLOUD_NAME', '')
+                cloud_preset = getattr(config, 'CLOUDINARY_UPLOAD_PRESET', 'smartcam_upload')
+                if cloud_name and cloud_preset:
+                    from lib.cloudinary_upload import upload_to_cloudinary
+                    up = upload_to_cloudinary(jpeg, cloud_name, cloud_preset)
+                    if up.get('success'):
+                        cloud_url = up.get('url', '')
+                        cloud_ok = True
+                        info('Cloudinary: %s' % cloud_url[:60])
+                    else:
+                        warn('Cloudinary upload failed')
                 else:
-                    warn('Image upload failed')
+                    warn('Cloudinary not configured')
+
+                # Post event
+                post_event(cloud_url, device_id, api_secret, ts, d, filename)
+
+                # Register Cloudinary URL with server
+                if cloud_ok and cloud_url:
+                    from lib.cloud_api import register_cloud_url
+                    register_cloud_url(cloud_url.split('/')[-1].split('.')[0], device_id, api_secret, ts, d, filename, cloud_url)
 
             # 6. Re-init camera
             cam_init(framesize=5)

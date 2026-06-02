@@ -201,6 +201,32 @@ def report_command_result(base_url, device_id, api_secret, command_id, success, 
         return False
 
 
+def register_cloud_url(base_url, device_id, api_secret, detected_at, distance_cm, filename, cloudinary_url):
+    """
+    POST /api/cloud-capture with Cloudinary URL reference.
+    Returns True on success.
+    """
+    host, port, use_ssl = _parse_url(base_url)
+    path = '/api/cloud-capture'
+
+    payload = '{"device_id":"%s","detected_at":"%s","distance_cm":%.1f,"filename":"%s","cloudinary_url":"%s"}' % (
+        device_id, detected_at, distance_cm, filename, cloudinary_url
+    )
+    headers = {'X-Device-Secret': api_secret}
+
+    try:
+        code, body = _http_post_json(host, port, use_ssl, path, payload, headers_extra=headers)
+        ok = _json_ok(code, body)
+        if ok:
+            info('Cloud URL registered')
+        else:
+            warn('Cloud URL register failed: HTTP %d' % code)
+        return ok
+    except Exception as e:
+        warn('Cloud URL register error: %s' % e)
+        return False
+
+
 def upload_capture(base_url, device_id, api_secret, image_bytes, detected_at, distance_cm, filename):
     """
     Upload JPEG capture to cloud /api/captures.

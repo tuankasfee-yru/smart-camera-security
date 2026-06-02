@@ -13,7 +13,17 @@ export default function GalleryPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState("");
 
-  const load = () => { setLoading(true); globalThis.fetch("/api/captures").then(r=>r.json()).then(d=>{if(d.ok)setItems(d.images)}).catch(()=>{}).finally(()=>setLoading(false)); };
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      globalThis.fetch("/api/captures").then(r=>r.json()),
+      globalThis.fetch("/api/cloud-capture").then(r=>r.json())
+    ]).then(([d1, d2]) => {
+      const a = (d1.ok ? d1.images : []).map((i: any) => ({ ...i, source: 'server' }));
+      const b = (d2.ok ? d2.images : []).map((i: any) => ({ ...i, url: i.cloudinary_url, source: 'cloudinary' }));
+      setItems([...b, ...a]);
+    }).catch(()=>{}).finally(()=>setLoading(false));
+  };
   useEffect(()=>{load()},[]);
 
   const del = async (id:string)=>{await globalThis.fetch(`/api/captures?id=${id}`,{method:"DELETE"});load()};
