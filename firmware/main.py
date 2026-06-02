@@ -151,6 +151,11 @@ try:
                 result = save_motion_image_to_sd(jpeg, distance_cm=d)
                 if result['success']:
                     info('SD: %s' % result['path'])
+                    # Cleanup old files if space < 500 MB
+                    from lib.sd_storage import get_free_space, cleanup_oldest_files
+                    free_mb = get_free_space() // (1024 * 1024)
+                    if free_mb < 500:
+                        cleanup_oldest_files()
             else:
                 cam_save(jpeg, filename)
                 info('Saved: %s' % filename)

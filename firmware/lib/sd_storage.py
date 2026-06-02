@@ -145,3 +145,55 @@ def get_free_space():
         return stat[0] * stat[3]
     except:
         return 0
+
+
+def get_sorted_media_files():
+    """
+    List JPEG files sorted by name (which includes timestamp).
+    Returns list of filenames, oldest first.
+    """
+    if not _mounted:
+        return []
+    try:
+        files = [f for f in os.listdir(MOUNT_POINT) if f.endswith('.jpg')]
+        files.sort()
+        return files
+    except:
+        return []
+
+
+def _get_file_path(filename):
+    return MOUNT_POINT + '/' + filename.lstrip('/')
+
+
+def cleanup_oldest_files(min_free_bytes=500 * 1024 * 1024):
+    """
+    Delete oldest JPEG files until free space >= min_free_bytes.
+    Default threshold: 500 MB.
+    Returns number of files deleted.
+    """
+    if not _mounted:
+        return 0
+
+    deleted = 0
+    while True:
+        free = get_free_space()
+        if free >= min_free_bytes or free == 0:
+            break
+
+        files = get_sorted_media_files()
+        if len(files) == 0:
+            break
+
+        # Delete the oldest file.
+        oldest = files[0]
+        path = _get_file_path(oldest)
+        try:
+            os.remove(path)
+            deleted += 1
+            info('SD cleanup: removed %s (free: %d MB)' % (oldest, free // (1024 * 1024)))
+        except OSError as e:
+            warn('SD cleanup: cannot delete %s: %s' % (oldest, e))
+            break
+
+    return deleted
