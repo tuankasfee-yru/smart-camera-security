@@ -41,20 +41,25 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({}));
-  const deviceId = body.device_id || DEFAULT_DEVICE;
-  const supabase = getAdmin();
+  try {
+    const body = await request.json().catch(() => ({}));
+    const deviceId = body.device_id || DEFAULT_DEVICE;
+    const supabase = getAdmin();
+    const updates: Record<string, any> = { device_id: deviceId, updated_at: new Date().toISOString() };
+    if (body.is_armed !== undefined) updates.is_armed = body.is_armed;
+    if (body.is_muted !== undefined) updates.is_muted = body.is_muted;
+    if (body.trigger_distance_cm !== undefined) updates.trigger_distance_cm = body.trigger_distance_cm;
 
-  if (supabase) {
-    const { data, error } = await supabase
-      .from("system_config")
-      .upsert({ device_id: deviceId, is_armed: body.is_armed ?? true, is_muted: body.is_muted ?? false, trigger_distance_cm: body.trigger_distance_cm ?? 50, updated_at: new Date().toISOString() })
-      .select().single();
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    updateConfig(deviceId, { is_armed: body.is_armed, is_muted: body.is_muted, trigger_distance_cm: body.trigger_distance_cm });
-    return NextResponse.json({ ok: true, config: data });
+    if (supabase) {
+      const { data, error } = await supabase.from("system_config").upsert(updates).select().single();
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      updateConfig(deviceId, { is_armed: updates.is_armed, is_muted: updates.is_muted });
+      return NextResponse.json({ ok: true, config: data });
+    }
+
+    updateConfig(deviceId, { is_armed: updates.is_armed, is_muted: updates.is_muted });
+    return NextResponse.json({ ok: true, config: getDevice(deviceId) });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
   }
-
-  updateConfig(deviceId, { is_armed: body.is_armed, is_muted: body.is_muted, trigger_distance_cm: body.trigger_distance_cm });
-  return NextResponse.json({ ok: true, config: getDevice(deviceId) });
 }
