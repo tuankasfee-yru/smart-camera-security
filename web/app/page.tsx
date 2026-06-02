@@ -37,16 +37,7 @@ export default function Dashboard() {
       const r = await (await globalThis.fetch('/api/commands', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: 'esp32cam-01', command_type: t, payload: {} }) })).json();
       setMsg(r.ok ? 'ส่งคำสั่งแล้ว' : r.error);
       if (r.ok) setStatus((s: any) => s ? { ...s, is_armed: t === 'arm' ? true : t === 'disarm' ? false : s.is_armed, is_muted: t === 'mute' ? true : t === 'unmute' ? false : s.is_muted } : null);
-    } catch { setMsg('error'); }
-  };
-      setMsg(r.ok ? (labels[t] || 'ส่งคำสั่งแล้ว') : r.error);
-      if (r.ok) setStatus((s: any) => s ? {
-        ...s,
-        is_armed: t === 'arm' ? true : t === 'disarm' ? false : s.is_armed,
-        is_muted: t === 'mute' ? true : t === 'unmute' ? false : s.is_muted,
-      } : null);
-    } catch { setMsg('เกิดข้อผิดพลาด'); }
-    setBusyCmd(null);
+    } catch (e) { setMsg('error'); }
   };
 
   const ago = (iso: string | null) => { if (!iso) return null; const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000); if (s < 60) return `${s}วิ`; return `${Math.floor(s / 60)}นาที`; };

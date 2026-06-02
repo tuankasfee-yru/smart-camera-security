@@ -3,7 +3,7 @@
 
 interface StoredImage {
   id: string;
-  jpeg: Buffer;
+  jpeg: Uint8Array;
   device_id: string;
   detected_at: string;
   distance_cm: number | null;
@@ -21,7 +21,7 @@ export function saveImage(data: {
   jpeg: Buffer;
 }): { id: string } {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  images[id] = { ...data, id, size: data.jpeg.length };
+  images[id] = { ...data, id, size: data.jpeg.length, jpeg: new Uint8Array(data.jpeg) };
   return { id };
 }
 

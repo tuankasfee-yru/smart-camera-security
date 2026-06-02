@@ -8,7 +8,7 @@ export async function GET(
   const { id } = await params;
   const img = getImage(id);
   if (!img) return NextResponse.json({ ok: false }, { status: 404 });
-  return new NextResponse(img.jpeg, {
+  return new NextResponse(new Uint8Array(img.jpeg), {
     headers: { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=3600" },
   });
 }
