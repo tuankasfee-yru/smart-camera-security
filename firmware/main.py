@@ -99,7 +99,7 @@ try:
 
         # --- Heartbeat ---
         if use_cloud and (now - last_heartbeat) >= HEARTBEAT_INTERVAL_SEC:
-            send_heartbeat(cloud_url, device_id, api_secret)
+            send_heartbeat(cloud_url, device_id, api_secret, device_ip=ip)
             last_heartbeat = now
 
         # --- Command polling ---

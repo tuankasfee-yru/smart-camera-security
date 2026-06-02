@@ -1,6 +1,6 @@
 # lib/cloud_api.py
-# ESP32-CAM cloud communication — heartbeat and event posting.
-# Uses raw socket+SSL (same pattern as telegram_client).
+# ESP32-CAM cloud communication — heartbeat, events, commands.
+# Supports both HTTP (dev) and HTTPS (production).
 
 import socket
 import ssl
@@ -9,30 +9,56 @@ import json
 from lib.logger import info, warn, error
 
 
+def _parse_url(base_url):
+    """
+    Parse base_url into (host, port, use_ssl).
+    Examples: 'https://app.vercel.app' → ('app.vercel.app', 443, True)
+              'http://192.168.1.100:3000' → ('192.168.1.100', 3000, False)
+              '192.168.1.100:3000' → ('192.168.1.100', 3000, False)
+    """
+    use_ssl = False
+    url = base_url.strip()
+    if url.startswith('https://'):
+        use_ssl = True
+        url = url[8:]
+    elif url.startswith('http://'):
+        url = url[7:]
+
+    if ':' in url:
+        host, port_str = url.rsplit(':', 1)
+        try:
+            port = int(port_str)
+        except:
+            port = 443 if use_ssl else 80
+    else:
+        host = url.rstrip('/')
+        port = 443 if use_ssl else 80
+
+    return host, port, use_ssl
+
+
 def _json_ok(code, body):
-    """ Parse JSON response and check ok field. """
     if code != 200:
         return False
     try:
-        data = json.loads(body)
-        return data.get('ok', False)
+        return json.loads(body).get('ok', False)
     except:
         return '"ok":true' in body
 
 
-def _http_post_json(host, path, json_body, headers_extra=None, timeout=15):
-    """ HTTPS POST with JSON body. Returns (status_code, body_text). """
+def _http_post_json(host, port, use_ssl, path, json_body, headers_extra=None, timeout=15):
+    """ HTTPS/HTTP POST with JSON body. Returns (status_code, body_text). """
     gc.collect()
-    body_bytes = json_body.encode('utf-8')
-    content_length = len(body_bytes)
+    content_length = len(json_body)
 
-    addr = socket.getaddrinfo(host, 443)[0][-1]
+    addr = socket.getaddrinfo(host, port)[0][-1]
     s = socket.socket()
     s.settimeout(timeout)
 
     try:
         s.connect(addr)
-        s = ssl.wrap_socket(s)
+        if use_ssl:
+            s = ssl.wrap_socket(s)
 
         hdr = 'POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: %d\r\nConnection: close\r\n' % (path, host, content_length)
         if headers_extra:
@@ -41,7 +67,7 @@ def _http_post_json(host, path, json_body, headers_extra=None, timeout=15):
         hdr += '\r\n'
 
         s.write(hdr.encode())
-        s.write(body_bytes)
+        s.write(json_body)
 
         buf = b''
         while True:
@@ -68,19 +94,18 @@ def _http_post_json(host, path, json_body, headers_extra=None, timeout=15):
             pass
 
 
-def send_heartbeat(base_url, device_id, api_secret):
-    """
-    POST /api/heartbeat with device_id.
-    Returns True on success.
-    """
-    host = base_url.replace('https://', '').replace('http://', '').rstrip('/')
+def send_heartbeat(base_url, device_id, api_secret, device_ip=None):
+    host, port, use_ssl = _parse_url(base_url)
     path = '/api/heartbeat'
 
-    payload = '{"device_id":"%s"}' % device_id
+    if device_ip:
+        payload = '{"device_id":"%s","device_ip":"%s"}' % (device_id, device_ip)
+    else:
+        payload = '{"device_id":"%s"}' % device_id
     headers = {'X-Device-Secret': api_secret}
 
     try:
-        code, body = _http_post_json(host, path, payload, headers_extra=headers)
+        code, body = _http_post_json(host, port, use_ssl, path, payload, headers_extra=headers)
         ok = _json_ok(code, body)
         if ok:
             info('Heartbeat OK')
@@ -93,13 +118,8 @@ def send_heartbeat(base_url, device_id, api_secret):
 
 
 def post_event(base_url, device_id, api_secret, detected_at, distance_cm, image_filename=None):
-    """
-    POST /api/log with detection event.
-    Returns True on success.
-    """
-    host = base_url.replace('https://', '').replace('http://', '').rstrip('/')
+    host, port, use_ssl = _parse_url(base_url)
     path = '/api/log'
-
     payload = '{"device_id":"%s","detected_at":"%s","distance_cm":%.1f,"image_filename":%s}' % (
         device_id, detected_at, distance_cm,
         '"%s"' % image_filename if image_filename else 'null'
@@ -107,7 +127,7 @@ def post_event(base_url, device_id, api_secret, detected_at, distance_cm, image_
     headers = {'X-Device-Secret': api_secret}
 
     try:
-        code, body = _http_post_json(host, path, payload, headers_extra=headers)
+        code, body = _http_post_json(host, port, use_ssl, path, payload, headers_extra=headers)
         ok = _json_ok(code, body)
         if ok:
             info('Event posted OK')
@@ -120,18 +140,17 @@ def post_event(base_url, device_id, api_secret, detected_at, distance_cm, image_
 
 
 def fetch_commands(base_url, device_id, api_secret):
-    """
-    GET /api/commands?device_id=<id>. Returns list of commands or [].
-    """
-    host = base_url.replace('https://', '').replace('http://', '').rstrip('/')
+    host, port, use_ssl = _parse_url(base_url)
     path = '/api/commands?device_id=%s' % device_id
+    s = None
 
     try:
-        addr = socket.getaddrinfo(host, 443)[0][-1]
+        addr = socket.getaddrinfo(host, port)[0][-1]
         s = socket.socket()
         s.settimeout(10)
         s.connect(addr)
-        s = ssl.wrap_socket(s)
+        if use_ssl:
+            s = ssl.wrap_socket(s)
 
         hdr = 'GET %s HTTP/1.1\r\nHost: %s\r\nX-Device-Secret: %s\r\nConnection: close\r\n\r\n' % (path, host, api_secret)
         s.write(hdr.encode())
@@ -159,26 +178,23 @@ def fetch_commands(base_url, device_id, api_secret):
         warn('Fetch commands error: %s' % e)
         return []
     finally:
-        try:
-            s.close()
-        except:
-            pass
+        if s:
+            try:
+                s.close()
+            except:
+                pass
 
 
 def report_command_result(base_url, device_id, api_secret, command_id, success, message=''):
-    """
-    POST /api/commands/result. Returns True on success.
-    """
-    host = base_url.replace('https://', '').replace('http://', '').rstrip('/')
+    host, port, use_ssl = _parse_url(base_url)
     path = '/api/commands/result'
-
     payload = '{"command_id":"%s","device_id":"%s","success":%s,"message":"%s"}' % (
         command_id, device_id, 'true' if success else 'false', message
     )
     headers = {'X-Device-Secret': api_secret}
 
     try:
-        code, _ = _http_post_json(host, path, payload, headers_extra=headers)
+        code, _ = _http_post_json(host, port, use_ssl, path, payload, headers_extra=headers)
         return code == 200
     except Exception as e:
         warn('Report result error: %s' % e)
